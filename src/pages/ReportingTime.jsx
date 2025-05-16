@@ -34,7 +34,7 @@ const ReportingTime = () => {
       setShiftTime('');
       setErrorMsg('');
     } else {
-      setErrorMsg('please fill in all fields'); // You can replace this with a more user-friendly alert
+      setErrorMsg('please fill in all fields'); 
     }
     
   };
