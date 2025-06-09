@@ -3,27 +3,23 @@ import { MdDelete, MdEdit, MdArrowUpward, MdArrowDownward, MdAdd, MdVisibility }
 import GenerateRollNoPDF from "../pdfPage/generateRollNoPDF"
 
 const RollNoAllotment = () => {
-  // Center Information
   const [centerName, setCenterName] = useState("")
   const [centerCode, setCenterCode] = useState("")
   const [date, setDate] = useState("")
   const [batch, setBatch] = useState("")
   const [time, setTime] = useState("")
 
-  // Center Management
   const [centerFormOpen, setCenterFormOpen] = useState(false)
   const [viewCenterData, setViewCenterData] = useState(false)
   const [centerRecords, setCenterRecords] = useState([])
   const [editingCenterIndex, setEditingCenterIndex] = useState(null)
   const [selectedCenterKey, setSelectedCenterKey] = useState("")
 
-  // Available options for dropdowns
   const [availableCenters, setAvailableCenters] = useState([])
   const [availableBatches, setAvailableBatches] = useState([])
   const [availableDates, setAvailableDates] = useState([])
   const [availableTimes, setAvailableTimes] = useState([])
 
-  // Exam Posts`
   const [records, setRecords] = useState([])
   const [formData, setFormData] = useState({
     post: "",
@@ -34,7 +30,6 @@ const RollNoAllotment = () => {
   const [editIndex, setEditIndex] = useState(null)
   const [showTable, setShowTable] = useState(false)
 
-  // Lab Allocations
   const [post, setPost] = useState("")
   const [floor, setFloor] = useState("")
   const [lab, setLab] = useState("")
@@ -45,117 +40,124 @@ const RollNoAllotment = () => {
   const [editingLabIndex, setEditingLabIndex] = useState(null)
   const [movingRow, setMovingRow] = useState(null)
 
-  // Refs
   const tableRef = useRef(null)
   const formRef = useRef(null)
 
-  // Load data from localStorage on component mount
   useEffect(() => {
     loadCenterRecords()
-    loadCurrentBatchData()
   }, [])
 
-  // Load center records from localStorage
+  useEffect(() => {
+    loadCurrentBatchData()
+  }, [centerName, batch])
+
   const loadCenterRecords = () => {
-    const storedCenters = JSON.parse(localStorage.getItem("centerRecords")) || []
-    setCenterRecords(storedCenters)
-    updateDropdownOptions(storedCenters)
+    try {
+      const storedCenters = JSON.parse(localStorage.getItem("centerRecords")) || []
+      setCenterRecords(storedCenters)
+      updateDropdownOptions(storedCenters)
+    } catch (error) {
+      console.error("Error loading center records:", error)
+      setCenterRecords([])
+    }
   }
 
-  // Update dropdown options based on center records
   const updateDropdownOptions = (centers) => {
     const centerNames = [...new Set(centers.map((c) => c.centerName))].filter(Boolean)
-    const centerCodes = [...new Set(centers.map((c) => c.centerCode))].filter(Boolean)
-    const dates = [...new Set(centers.map((c) => c.date))].filter(Boolean)
-    const batches = [...new Set(centers.map((c) => c.batch))].filter(Boolean)
-    const times = [...new Set(centers.map((c) => c.time))].filter(Boolean)
-
     setAvailableCenters(centerNames)
-    setAvailableBatches(batches)
-    setAvailableDates(dates)
-    setAvailableTimes(times)
   }
 
-  // Load current batch data
   const loadCurrentBatchData = () => {
-    const currentKey = `${centerName}_${batch}`
-    const storedExamData = JSON.parse(localStorage.getItem(`examData_${currentKey}`)) || []
-    const storedLabData = JSON.parse(localStorage.getItem(`labData_${currentKey}`)) || []
+    if (!centerName || !batch) {
+      setRecords([])
+      setLabData([])
+      return
+    }
 
-    setRecords(storedExamData)
-    setLabData(storedLabData)
+    try {
+      const currentKey = `${centerName}_${batch}`
+      const storedExamData = JSON.parse(localStorage.getItem(`examData_${currentKey}`)) || []
+      const storedLabData = JSON.parse(localStorage.getItem(`labData_${currentKey}`)) || []
+
+      setRecords(storedExamData)
+      setLabData(storedLabData)
+    } catch (error) {
+      console.error("Error loading batch data:", error)
+      setRecords([])
+      setLabData([])
+    }
   }
 
-  // Handle center selection change
   const handleCenterChange = (selectedCenter) => {
     setCenterName(selectedCenter)
+    setBatch("")
+    setCenterCode("")
+    setDate("")
+    setTime("")
+    setRecords([])
+    setLabData([])
 
-    // Find all batches for this center
-    const centerBatches = centerRecords
-      .filter((record) => record.centerName === selectedCenter)
-      .map((record) => record.batch)
-      .filter((batch, index, self) => self.indexOf(batch) === index)
+    if (selectedCenter) {
+      // Only get batches for the selected center
+      const centerBatches = centerRecords
+        .filter((record) => record.centerName === selectedCenter)
+        .map((record) => record.batch)
+        .filter((batch, index, self) => self.indexOf(batch) === index)
 
-    setAvailableBatches(centerBatches)
+      setAvailableBatches(centerBatches)
+    } else {
+      setAvailableBatches([])
+    }
+  }
 
-    // Auto-select first batch if available
-    if (centerBatches.length > 0) {
-      setBatch(centerBatches[0])
+  const handleBatchChange = (selectedBatch) => {
+    setBatch(selectedBatch)
 
-      // Load data for this center and batch
-      const centerRecord = centerRecords.find((r) => r.centerName === selectedCenter && r.batch === centerBatches[0])
+    if (selectedBatch && centerName) {
+      // Only when both center and batch are selected, show the details
+      const centerRecord = centerRecords.find((r) => r.centerName === centerName && r.batch === selectedBatch)
 
       if (centerRecord) {
         setCenterCode(centerRecord.centerCode)
         setDate(centerRecord.date)
         setTime(centerRecord.time)
+      }
 
-        // Load batch-specific data
-        const batchKey = `${selectedCenter}_${centerBatches[0]}`
+      // Load data for this center-batch combination
+      const batchKey = `${centerName}_${selectedBatch}`
+      try {
         const storedExamData = JSON.parse(localStorage.getItem(`examData_${batchKey}`)) || []
         const storedLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
 
         setRecords(storedExamData)
         setLabData(storedLabData)
+      } catch (error) {
+        console.error("Error loading batch data:", error)
+        setRecords([])
+        setLabData([])
       }
+    } else {
+      // If no batch selected, clear everything
+      setCenterCode("")
+      setDate("")
+      setTime("")
+      setRecords([])
+      setLabData([])
     }
   }
 
-  // Handle batch change
-  const handleBatchChange = (selectedBatch) => {
-    setBatch(selectedBatch)
-
-    // Find center record for this batch
-    const centerRecord = centerRecords.find((r) => r.centerName === centerName && r.batch === selectedBatch)
-
-    if (centerRecord) {
-      setCenterCode(centerRecord.centerCode)
-      setDate(centerRecord.date)
-      setTime(centerRecord.time)
-    }
-
-    // Load batch-specific data
-    const batchKey = `${centerName}_${selectedBatch}`
-    const storedExamData = JSON.parse(localStorage.getItem(`examData_${batchKey}`)) || []
-    const storedLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
-
-    setRecords(storedExamData)
-    setLabData(storedLabData)
-  }
-
-  // Save center information
   const saveCenterInfo = () => {
-    if (!centerName || !centerCode || !date || !batch || !time) {
+    if (!centerName.trim() || !centerCode.trim() || !date.trim() || !batch.trim() || !time.trim()) {
       alert("Please fill all fields")
       return
     }
 
     const centerData = {
-      centerName,
-      centerCode,
-      date,
-      batch,
-      time,
+      centerName: centerName.trim(),
+      centerCode: centerCode.trim(),
+      date: date.trim(),
+      batch: batch.trim(),
+      time: time.trim(),
       id: Date.now(),
     }
 
@@ -165,21 +167,35 @@ const RollNoAllotment = () => {
       updatedCenters[editingCenterIndex] = centerData
       setEditingCenterIndex(null)
     } else {
+      const existingRecord = centerRecords.find(
+        (record) => record.centerName === centerData.centerName && record.batch === centerData.batch,
+      )
+
+      if (existingRecord) {
+        alert("Center with this batch already exists!")
+        return
+      }
+
       updatedCenters = [...centerRecords, centerData]
     }
 
-    setCenterRecords(updatedCenters)
-    localStorage.setItem("centerRecords", JSON.stringify(updatedCenters))
-    updateDropdownOptions(updatedCenters)
+    try {
+      setCenterRecords(updatedCenters)
+      localStorage.setItem("centerRecords", JSON.stringify(updatedCenters))
+      updateDropdownOptions(updatedCenters)
 
-    setCenterFormOpen(false)
+      setCenterFormOpen(false)
+      setSelectedCenterKey(`${centerName}_${batch}`)
 
-    // Set current selection
-    setSelectedCenterKey(`${centerName}_${batch}`)
-    loadCurrentBatchData()
+      setTimeout(() => {
+        loadCurrentBatchData()
+      }, 100)
+    } catch (error) {
+      console.error("Error saving center info:", error)
+      alert("Error saving center information")
+    }
   }
 
-  // Edit center record
   const editCenterRecord = (index) => {
     const record = centerRecords[index]
     setCenterName(record.centerName)
@@ -191,23 +207,36 @@ const RollNoAllotment = () => {
     setCenterFormOpen(true)
   }
 
-  // Delete center record
   const deleteCenterRecord = (index) => {
-    if (confirm("Are you sure you want to delete this center record?")) {
-      const updatedCenters = centerRecords.filter((_, i) => i !== index)
-      setCenterRecords(updatedCenters)
-      localStorage.setItem("centerRecords", JSON.stringify(updatedCenters))
-      updateDropdownOptions(updatedCenters)
-
-      // Clear related data
+    if (window.confirm("Are you sure you want to delete this center record?")) {
       const record = centerRecords[index]
-      const batchKey = `${record.centerName}_${record.batch}`
-      localStorage.removeItem(`examData_${batchKey}`)
-      localStorage.removeItem(`labData_${batchKey}`)
+      const updatedCenters = centerRecords.filter((_, i) => i !== index)
+
+      try {
+        setCenterRecords(updatedCenters)
+        localStorage.setItem("centerRecords", JSON.stringify(updatedCenters))
+        updateDropdownOptions(updatedCenters)
+
+        const batchKey = `${record.centerName}_${record.batch}`
+        localStorage.removeItem(`examData_${batchKey}`)
+        localStorage.removeItem(`labData_${batchKey}`)
+
+        if (centerName === record.centerName && batch === record.batch) {
+          setCenterName("")
+          setBatch("")
+          setCenterCode("")
+          setDate("")
+          setTime("")
+          setRecords([])
+          setLabData([])
+        }
+      } catch (error) {
+        console.error("Error deleting center record:", error)
+        alert("Error deleting center record")
+      }
     }
   }
 
-  // Handle clicks outside table and form to cancel editing
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (editingLabIndex !== null) {
@@ -226,14 +255,12 @@ const RollNoAllotment = () => {
     }
   }, [editingLabIndex])
 
-  // Handle form changes for exam posts
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-  // Add or update exam post
   const handleAddOrUpdate = () => {
-    if (!formData.post || !formData.totalCandidates || !formData.startRoll || !formData.endRoll) {
+    if (!formData.post.trim() || !formData.totalCandidates || !formData.startRoll.trim() || !formData.endRoll.trim()) {
       alert("Please fill all fields")
       return
     }
@@ -243,122 +270,144 @@ const RollNoAllotment = () => {
       return
     }
 
+    const totalCandidates = Number.parseInt(formData.totalCandidates)
+    const startRoll = Number.parseInt(formData.startRoll)
+    const endRoll = Number.parseInt(formData.endRoll)
+
+    if (isNaN(totalCandidates) || isNaN(startRoll) || isNaN(endRoll)) {
+      alert("Please enter valid numbers")
+      return
+    }
+
+    if (startRoll > endRoll) {
+      alert("Start roll number cannot be greater than end roll number")
+      return
+    }
+
+    if (endRoll - startRoll + 1 !== totalCandidates) {
+      alert("Total candidates should match the roll number range")
+      return
+    }
+
+    const postData = {
+      post: formData.post.trim(),
+      totalCandidates: totalCandidates.toString(),
+      startRoll: startRoll.toString(),
+      endRoll: endRoll.toString(),
+    }
+
     let updatedRecords
     if (editIndex !== null) {
       updatedRecords = [...records]
-      updatedRecords[editIndex] = formData
+      updatedRecords[editIndex] = postData
       setEditIndex(null)
     } else {
-      updatedRecords = [...records, formData]
+      const existingPost = records.find((record) => record.post === postData.post)
+      if (existingPost) {
+        alert("Post already exists!")
+        return
+      }
+      updatedRecords = [...records, postData]
     }
 
-    setRecords(updatedRecords)
-    const batchKey = `${centerName}_${batch}`
-    localStorage.setItem(`examData_${batchKey}`, JSON.stringify(updatedRecords))
+    try {
+      setRecords(updatedRecords)
+      const batchKey = `${centerName}_${batch}`
+      localStorage.setItem(`examData_${batchKey}`, JSON.stringify(updatedRecords))
 
-    setFormData({
-      post: "",
-      totalCandidates: "",
-      startRoll: "",
-      endRoll: "",
-    })
+      setFormData({
+        post: "",
+        totalCandidates: "",
+        startRoll: "",
+        endRoll: "",
+      })
+    } catch (error) {
+      console.error("Error saving exam data:", error)
+      alert("Error saving exam data")
+    }
   }
 
-  // Delete exam post
   const handleDelete = (index) => {
-    const updatedRecords = records.filter((_, i) => i !== index)
-    setRecords(updatedRecords)
-    const batchKey = `${centerName}_${batch}`
-    localStorage.setItem(`examData_${batchKey}`, JSON.stringify(updatedRecords))
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      const updatedRecords = records.filter((_, i) => i !== index)
+      try {
+        setRecords(updatedRecords)
+        const batchKey = `${centerName}_${batch}`
+        localStorage.setItem(`examData_${batchKey}`, JSON.stringify(updatedRecords))
+      } catch (error) {
+        console.error("Error deleting exam data:", error)
+        alert("Error deleting exam data")
+      }
+    }
   }
 
-  // Edit exam post
   const handleEdit = (index) => {
     setFormData(records[index])
     setEditIndex(index)
   }
 
-  // Calculate next available roll numbers for a post with batch consideration
   const getNextRollNumbers = (postName, allowedCount) => {
     const selectedPost = records.find((p) => p.post === postName)
-    if (!selectedPost) return { start: "", end: "" }
+    if (!selectedPost) return { start: "", end: "", error: "Post not found" }
 
-    // Check if this is an officer post (contains "755")
     const isOfficerPost = postName.includes("755")
-
-    // Get existing allocations for this post in current batch
-    const currentBatchKey = `${centerName}_${batch}`
-    const existingAllocations = labData.filter((a) => a.post === postName)
-
-    // Check previous batches for this center to get the highest roll number used
     let globalHighestRoll = 0
 
-    // Get all batches for this center
-    const centerBatches = centerRecords
-      .filter((record) => record.centerName === centerName)
-      .map((record) => record.batch)
-      .filter((batch, index, self) => self.indexOf(batch) === index)
-      .sort()
-
-    // For officer posts, check ALL batches across ALL centers to get the global highest roll
     if (isOfficerPost) {
-      // Check all centers and all batches for officer posts
       const allCenterBatches = centerRecords.map((record) => `${record.centerName}_${record.batch}`)
 
       allCenterBatches.forEach((batchKey) => {
-        const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
-        batchLabData.forEach((allocation) => {
-          // Check if this allocation is for an officer post
-          if (allocation.post && allocation.post.includes("755")) {
-            const endRoll = Number.parseInt(allocation.endRollNo)
-            if (endRoll > globalHighestRoll) {
-              globalHighestRoll = endRoll
+        try {
+          const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
+          batchLabData.forEach((allocation) => {
+            if (allocation.post && allocation.post.includes("755")) {
+              const endRoll = Number.parseInt(allocation.endRollNo)
+              if (!isNaN(endRoll) && endRoll > globalHighestRoll) {
+                globalHighestRoll = endRoll
+              }
             }
-          }
-        })
+          })
+        } catch (error) {
+          console.error("Error reading lab data:", error)
+        }
       })
     } else {
-      // For non-officer posts, use the existing logic (center-specific)
+      const centerBatches = centerRecords
+        .filter((record) => record.centerName === centerName)
+        .map((record) => record.batch)
+        .filter((batch, index, self) => self.indexOf(batch) === index)
+        .sort()
+
       const currentBatchIndex = centerBatches.indexOf(batch)
 
-      // Check all previous batches for this center
-      for (let i = 0; i < currentBatchIndex; i++) {
-        const prevBatchKey = `${centerName}_${centerBatches[i]}`
-        const prevLabData = JSON.parse(localStorage.getItem(`labData_${prevBatchKey}`)) || []
-
-        prevLabData.forEach((allocation) => {
-          if (allocation.post === postName) {
-            const endRoll = Number.parseInt(allocation.endRollNo)
-            if (endRoll > globalHighestRoll) {
-              globalHighestRoll = endRoll
+      for (let i = 0; i <= currentBatchIndex; i++) {
+        const batchKey = `${centerName}_${centerBatches[i]}`
+        try {
+          const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
+          batchLabData.forEach((allocation) => {
+            if (allocation.post === postName) {
+              const endRoll = Number.parseInt(allocation.endRollNo)
+              if (!isNaN(endRoll) && endRoll > globalHighestRoll) {
+                globalHighestRoll = endRoll
+              }
             }
-          }
-        })
+          })
+        } catch (error) {
+          console.error("Error reading lab data:", error)
+        }
       }
     }
 
-    // Check current batch allocations
-    existingAllocations.forEach((allocation) => {
-      const endRoll = Number.parseInt(allocation.endRollNo)
-      if (endRoll > globalHighestRoll) {
-        globalHighestRoll = endRoll
-      }
-    })
-
-    // Calculate next start and end roll numbers
     let nextStart
     if (globalHighestRoll === 0) {
-      // No previous allocations, use the start roll from the post
       nextStart = Number.parseInt(selectedPost.startRoll)
     } else {
-      // Continue from where previous allocation ended
       nextStart = globalHighestRoll + 1
     }
 
-    const nextEnd = nextStart + Number.parseInt(allowedCount) - 1
-
-    // Check if we exceed the total candidates for this post
+    const nextEnd = nextStart + allowedCount - 1
     const maxEnd = Number.parseInt(selectedPost.endRoll)
+
     if (nextEnd > maxEnd) {
       return { start: "", end: "", error: "Exceeds available candidates" }
     }
@@ -369,9 +418,8 @@ const RollNoAllotment = () => {
     }
   }
 
-  // Add or update lab allocation
   const saveData = () => {
-    if (!post || !floor || !lab || !allowed) {
+    if (!post || !floor.trim() || !lab.trim() || !allowed) {
       setErrorMsg("Please fill in all fields")
       return
     }
@@ -382,25 +430,41 @@ const RollNoAllotment = () => {
     }
 
     const allowedCount = Number.parseInt(allowed)
+    if (isNaN(allowedCount) || allowedCount <= 0) {
+      setErrorMsg("Please enter a valid number for allocation")
+      return
+    }
 
-    // If editing an existing allocation
     if (editingLabIndex !== null) {
       const updatedLabData = [...labData]
+      const currentItem = updatedLabData[editingLabIndex]
+
+      // Keep the start roll number but recalculate end roll number based on new allocation
+      const startRoll = Number.parseInt(currentItem.startRollNo)
+      const newEndRoll = startRoll + allowedCount - 1
+
       updatedLabData[editingLabIndex] = {
         ...updatedLabData[editingLabIndex],
         post,
-        floor,
-        lab,
+        floor: floor.trim(),
+        lab: lab.trim(),
         allowed: allowedCount,
+        startRollNo: currentItem.startRollNo, // Keep original start roll
+        endRollNo: newEndRoll.toString(), // Recalculate end roll
       }
 
-      const batchKey = `${centerName}_${batch}`
-      localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
-      setLabData(updatedLabData)
-      setEditingLabIndex(null)
-    }
-    // Adding a new allocation
-    else {
+      try {
+        const batchKey = `${centerName}_${batch}`
+        localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
+        setLabData(updatedLabData)
+        setEditingLabIndex(null)
+      } catch (error) {
+        console.error("Error updating lab data:", error)
+        setErrorMsg("Error updating lab data")
+        return
+      }
+    } else {
+      // For new allocations, calculate roll numbers as before
       const rollNumbers = getNextRollNumbers(post, allowedCount)
 
       if (rollNumbers.error) {
@@ -410,20 +474,25 @@ const RollNoAllotment = () => {
 
       const newLabData = {
         post,
-        floor,
-        lab,
+        floor: floor.trim(),
+        lab: lab.trim(),
         allowed: allowedCount,
         startRollNo: rollNumbers.start,
         endRollNo: rollNumbers.end,
       }
 
       const updatedLabData = [...labData, newLabData]
-      const batchKey = `${centerName}_${batch}`
-      localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
-      setLabData(updatedLabData)
+      try {
+        const batchKey = `${centerName}_${batch}`
+        localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
+        setLabData(updatedLabData)
+      } catch (error) {
+        console.error("Error saving lab data:", error)
+        setErrorMsg("Error saving lab data")
+        return
+      }
     }
 
-    // Reset form fields
     setPost("")
     setFloor("")
     setLab("")
@@ -431,7 +500,6 @@ const RollNoAllotment = () => {
     setErrorMsg("")
   }
 
-  // Edit lab allocation
   const handleEditLab = (index) => {
     const labToEdit = labData[index]
 
@@ -443,7 +511,6 @@ const RollNoAllotment = () => {
     setEditingLabIndex(index)
   }
 
-  // Cancel editing
   const handleCancelEdit = () => {
     setEditingLabIndex(null)
     setPost("")
@@ -453,34 +520,42 @@ const RollNoAllotment = () => {
     setErrorMsg("")
   }
 
-  // Clear all lab allocations for current batch
   const handleClearAll = () => {
-    if (confirm("Are you sure you want to clear all lab allocations for this batch?")) {
-      const batchKey = `${centerName}_${batch}`
-      localStorage.removeItem(`labData_${batchKey}`)
-      setLabData([])
-      handleCancelEdit()
-    }
-  }
-
-  // Delete a lab allocation
-  const handleDeleteRow = (index) => {
-    if (confirm("Are you sure you want to delete this lab allocation?")) {
-      const updatedLabData = [...labData]
-      updatedLabData.splice(index, 1)
-      const batchKey = `${centerName}_${batch}`
-      localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
-      setLabData(updatedLabData)
-
-      if (editingLabIndex === index) {
+    if (window.confirm("Are you sure you want to clear all lab allocations for this batch?")) {
+      try {
+        const batchKey = `${centerName}_${batch}`
+        localStorage.removeItem(`labData_${batchKey}`)
+        setLabData([])
         handleCancelEdit()
-      } else if (editingLabIndex > index) {
-        setEditingLabIndex(editingLabIndex - 1)
+      } catch (error) {
+        console.error("Error clearing lab data:", error)
+        alert("Error clearing lab data")
       }
     }
   }
 
-  // Move a row up in the table
+  const handleDeleteRow = (index) => {
+    if (window.confirm("Are you sure you want to delete this lab allocation?")) {
+      const updatedLabData = [...labData]
+      updatedLabData.splice(index, 1)
+
+      try {
+        const batchKey = `${centerName}_${batch}`
+        localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
+        setLabData(updatedLabData)
+
+        if (editingLabIndex === index) {
+          handleCancelEdit()
+        } else if (editingLabIndex > index) {
+          setEditingLabIndex(editingLabIndex - 1)
+        }
+      } catch (error) {
+        console.error("Error deleting lab allocation:", error)
+        alert("Error deleting lab allocation")
+      }
+    }
+  }
+
   const moveRowUp = (index) => {
     if (index === 0) return
 
@@ -489,21 +564,24 @@ const RollNoAllotment = () => {
     updatedLabData[index] = updatedLabData[index - 1]
     updatedLabData[index - 1] = temp
 
-    setLabData(updatedLabData)
-    const batchKey = `${centerName}_${batch}`
-    localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
+    try {
+      setLabData(updatedLabData)
+      const batchKey = `${centerName}_${batch}`
+      localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
 
-    if (editingLabIndex === index) {
-      setEditingLabIndex(index - 1)
-    } else if (editingLabIndex === index - 1) {
-      setEditingLabIndex(index)
+      if (editingLabIndex === index) {
+        setEditingLabIndex(index - 1)
+      } else if (editingLabIndex === index - 1) {
+        setEditingLabIndex(index)
+      }
+
+      setMovingRow(index - 1)
+      setTimeout(() => setMovingRow(null), 500)
+    } catch (error) {
+      console.error("Error moving row up:", error)
     }
-
-    setMovingRow(index - 1)
-    setTimeout(() => setMovingRow(null), 500)
   }
 
-  // Move a row down in the table
   const moveRowDown = (index) => {
     if (index === labData.length - 1) return
 
@@ -512,21 +590,24 @@ const RollNoAllotment = () => {
     updatedLabData[index] = updatedLabData[index + 1]
     updatedLabData[index + 1] = temp
 
-    setLabData(updatedLabData)
-    const batchKey = `${centerName}_${batch}`
-    localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
+    try {
+      setLabData(updatedLabData)
+      const batchKey = `${centerName}_${batch}`
+      localStorage.setItem(`labData_${batchKey}`, JSON.stringify(updatedLabData))
 
-    if (editingLabIndex === index) {
-      setEditingLabIndex(index + 1)
-    } else if (editingLabIndex === index + 1) {
-      setEditingLabIndex(index)
+      if (editingLabIndex === index) {
+        setEditingLabIndex(index + 1)
+      } else if (editingLabIndex === index + 1) {
+        setEditingLabIndex(index)
+      }
+
+      setMovingRow(index + 1)
+      setTimeout(() => setMovingRow(null), 500)
+    } catch (error) {
+      console.error("Error moving row down:", error)
     }
-
-    setMovingRow(index + 1)
-    setTimeout(() => setMovingRow(null), 500)
   }
 
-  // Show PDF preview
   const handlePreviewPDF = () => {
     if (labData.length > 0) {
       setShowPdfPreview(true)
@@ -535,78 +616,80 @@ const RollNoAllotment = () => {
     }
   }
 
-  // Get remaining candidates for a post (batch-specific for non-officer posts)
   const getRemainingCandidates = (postName) => {
     const post = records.find((p) => p.post === postName)
     if (!post) return 0
 
     const totalCandidates = Number.parseInt(post.totalCandidates)
-
-    // Check if this is an officer post
     const isOfficerPost = postName.includes("755")
-
     let totalAllocated = 0
 
     if (isOfficerPost) {
-      // For officer posts, count allocations across ALL centers and batches
       const allCenterBatches = centerRecords.map((record) => `${record.centerName}_${record.batch}`)
 
       allCenterBatches.forEach((batchKey) => {
-        const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
-        batchLabData.forEach((allocation) => {
-          if (allocation.post && allocation.post.includes("755")) {
-            totalAllocated += Number.parseInt(allocation.allowed)
-          }
-        })
+        try {
+          const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
+          batchLabData.forEach((allocation) => {
+            if (allocation.post && allocation.post.includes("755")) {
+              totalAllocated += Number.parseInt(allocation.allowed) || 0
+            }
+          })
+        } catch (error) {
+          console.error("Error calculating remaining candidates:", error)
+        }
       })
     } else {
-      // For non-officer posts, count allocations across all batches for this center
       const centerBatches = centerRecords
         .filter((record) => record.centerName === centerName)
         .map((record) => record.batch)
 
       centerBatches.forEach((batchName) => {
         const batchKey = `${centerName}_${batchName}`
-        const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
-        batchLabData.forEach((allocation) => {
-          if (allocation.post === postName) {
-            totalAllocated += Number.parseInt(allocation.allowed)
-          }
-        })
+        try {
+          const batchLabData = JSON.parse(localStorage.getItem(`labData_${batchKey}`)) || []
+          batchLabData.forEach((allocation) => {
+            if (allocation.post === postName) {
+              totalAllocated += Number.parseInt(allocation.allowed) || 0
+            }
+          })
+        } catch (error) {
+          console.error("Error calculating remaining candidates:", error)
+        }
       })
     }
 
-    return totalCandidates - totalAllocated
+    let remaining = Math.max(0, totalCandidates - totalAllocated)
+
+    // If we're editing a lab allocation for this post, add back the editing value
+    if (editingLabIndex !== null && labData[editingLabIndex] && labData[editingLabIndex].post === postName) {
+      const editingValue = Number.parseInt(labData[editingLabIndex].allowed) || 0
+      remaining += editingValue
+    }
+
+    return remaining
   }
 
-  // Get remaining candidates for current batch only
   const getCurrentBatchRemaining = (postName) => {
     const post = records.find((p) => p.post === postName)
     if (!post) return 0
 
     const totalCandidates = Number.parseInt(post.totalCandidates)
-
-    // Check if this is an officer post
     const isOfficerPost = postName.includes("755")
 
     if (isOfficerPost) {
-      // For officer posts, show global remaining
       return getRemainingCandidates(postName)
     } else {
-      // For non-officer posts, show only current batch allocations
       const currentBatchAllocated = labData
         .filter((a) => a.post === postName)
-        .reduce((sum, a) => sum + Number.parseInt(a.allowed), 0)
+        .reduce((sum, a) => sum + (Number.parseInt(a.allowed) || 0), 0)
 
-      return totalCandidates - currentBatchAllocated
+      return Math.max(0, totalCandidates - currentBatchAllocated)
     }
   }
 
-  // Get officer post allocation summary across all batches
   const getOfficerAllocationSummary = () => {
     const officerAllocations = []
-
-    // Get all center-batch combinations
     const allCenterBatches = centerRecords.map((record) => ({
       key: `${record.centerName}_${record.batch}`,
       centerName: record.centerName,
@@ -614,29 +697,35 @@ const RollNoAllotment = () => {
     }))
 
     allCenterBatches.forEach(({ key, centerName, batch }) => {
-      const batchLabData = JSON.parse(localStorage.getItem(`labData_${key}`)) || []
-      batchLabData.forEach((allocation) => {
-        if (allocation.post && allocation.post.includes("755")) {
-          officerAllocations.push({
-            centerName,
-            batch,
-            post: allocation.post,
-            startRoll: allocation.startRollNo,
-            endRoll: allocation.endRollNo,
-            allocated: allocation.allowed,
-          })
-        }
-      })
+      try {
+        const batchLabData = JSON.parse(localStorage.getItem(`labData_${key}`)) || []
+        batchLabData.forEach((allocation) => {
+          if (allocation.post && allocation.post.includes("755")) {
+            officerAllocations.push({
+              centerName,
+              batch,
+              post: allocation.post,
+              startRoll: allocation.startRollNo,
+              endRoll: allocation.endRollNo,
+              allocated: allocation.allowed,
+            })
+          }
+        })
+      } catch (error) {
+        console.error("Error getting officer allocation summary:", error)
+      }
     })
 
     return officerAllocations.sort((a, b) => Number.parseInt(a.startRoll) - Number.parseInt(b.startRoll))
   }
 
-  // Preview next roll numbers
   const previewNextRollNumbers = () => {
     if (!post || !allowed || editingLabIndex !== null) return null
 
-    const preview = getNextRollNumbers(post, Number.parseInt(allowed) || 0)
+    const allowedNum = Number.parseInt(allowed)
+    if (isNaN(allowedNum)) return null
+
+    const preview = getNextRollNumbers(post, allowedNum)
     if (preview.error) {
       return <span className="text-red-600">{preview.error}</span>
     }
@@ -656,7 +745,6 @@ const RollNoAllotment = () => {
         <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-center font-medium">{errorMsg}</div>
       )}
 
-      {/* Center Information Buttons */}
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setCenterFormOpen(true)}
@@ -672,7 +760,6 @@ const RollNoAllotment = () => {
         </button>
       </div>
 
-      {/* Center Selection Dropdowns */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 bg-blue-50 p-4 rounded-lg">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Select Center</label>
@@ -721,8 +808,7 @@ const RollNoAllotment = () => {
         </div>
       </div>
 
-      {/* Officer Post Summary */}
-      {centerName && getOfficerAllocationSummary().length > 0 && (
+      {centerName && batch && getOfficerAllocationSummary().length > 0 && (
         <div className="mb-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <h3 className="text-lg font-semibold mb-3 text-yellow-800">Officer Post (755) Global Summary</h3>
           <div className="overflow-x-auto">
@@ -754,7 +840,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Center Information Display */}
       {viewCenterData && (
         <div className="overflow-x-auto mb-6 bg-white rounded-md shadow">
           <table className="min-w-full text-sm text-center">
@@ -804,7 +889,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Center Information Modal */}
       {centerFormOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-96 max-w-md">
@@ -884,7 +968,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Exam Posts Management */}
       {centerName && batch && (
         <div className="mb-8">
           <div className="bg-white p-6 rounded-md shadow-md mb-6">
@@ -956,7 +1039,6 @@ const RollNoAllotment = () => {
             </div>
           </div>
 
-          {/* Exam Posts Table */}
           {showTable && (
             <div className="overflow-x-auto mb-8 bg-white rounded-md shadow">
               <table className="min-w-full text-sm text-center">
@@ -1017,7 +1099,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Lab Allocation Form */}
       {centerName && batch && (
         <div ref={formRef} className="bg-white p-6 rounded-md shadow-md mb-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-700">
@@ -1033,11 +1114,15 @@ const RollNoAllotment = () => {
                 onChange={(e) => setPost(e.target.value)}
               >
                 <option value="">Select Post</option>
-                {records.map((record, index) => (
-                  <option key={index} value={record.post}>
-                    {record.post} (Remaining: {getRemainingCandidates(record.post)})
-                  </option>
-                ))}
+                {records.map((record, index) => {
+                  const remainingCount = getRemainingCandidates(record.post)
+
+                  return (
+                    <option key={index} value={record.post}>
+                      {record.post} (Remaining: {remainingCount})
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
@@ -1064,7 +1149,7 @@ const RollNoAllotment = () => {
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Allot</label>
               <input
-                type="text"
+                type="number"
                 value={allowed}
                 onChange={(e) => setAllowed(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-4 py-2"
@@ -1094,7 +1179,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Roll Number Preview */}
       {post && allowed && editingLabIndex === null && centerName && batch && (
         <div className="p-3 bg-blue-50 rounded-lg mb-6">
           <p className="text-sm text-blue-700">
@@ -1103,7 +1187,6 @@ const RollNoAllotment = () => {
         </div>
       )}
 
-      {/* Lab Allocations Table */}
       {labData.length > 0 && (
         <div className="overflow-x-auto mt-8 max-w-4xl mx-auto">
           <div ref={tableRef}>
@@ -1166,26 +1249,26 @@ const RollNoAllotment = () => {
                       </div>
                     </td>
                     <td className="px-3 py-3 border-b">{index + 1}</td>
-                    <td className="px-3 py-3 border-b" onClick={() => handleEditLab(index)}>
+                    <td className="px-3 py-3 border-b cursor-pointer" onClick={() => handleEditLab(index)}>
                       {data.post}
                     </td>
-                    <td className="px-3 py-3 border-b" onClick={() => handleEditLab(index)}>
+                    <td className="px-3 py-3 border-b cursor-pointer" onClick={() => handleEditLab(index)}>
                       {data.floor}
                     </td>
-                    <td className="px-3 py-3 border-b" onClick={() => handleEditLab(index)}>
+                    <td className="px-3 py-3 border-b cursor-pointer" onClick={() => handleEditLab(index)}>
                       {data.lab}
                     </td>
-                    <td className="px-3 py-3 border-b" onClick={() => handleEditLab(index)}>
+                    <td className="px-3 py-3 border-b cursor-pointer" onClick={() => handleEditLab(index)}>
                       {data.allowed}
                     </td>
                     <td
-                      className="px-3 py-3 border-b font-semibold text-green-600"
+                      className="px-3 py-3 border-b font-semibold text-green-600 cursor-pointer"
                       onClick={() => handleEditLab(index)}
                     >
                       {data.startRollNo}
                     </td>
                     <td
-                      className="px-3 py-3 border-b font-semibold text-green-600"
+                      className="px-3 py-3 border-b font-semibold text-green-600 cursor-pointer"
                       onClick={() => handleEditLab(index)}
                     >
                       {data.endRollNo}
@@ -1235,6 +1318,7 @@ const RollNoAllotment = () => {
           </div>
         </div>
       )}
+
       {showPdfPreview && (
         <GenerateRollNoPDF
           centerName={centerName}
@@ -1249,4 +1333,5 @@ const RollNoAllotment = () => {
     </div>
   )
 }
+
 export default RollNoAllotment
